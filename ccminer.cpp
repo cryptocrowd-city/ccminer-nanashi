@@ -236,6 +236,7 @@ Options:\n\
 			mjollnir    Mjollnircoin\n\
 			myr-gr      Myriad-Groestl\n\
 			neoscrypt   FeatherCoin, Phoenix, UFO...\n\
+			neoscrypt-xaya   XAYA's version...\n\
 			nist5       NIST5 (TalkCoin)\n\
 			penta       Pentablake hash (5x Blake 512)\n\
 			quark       Quark\n\
@@ -595,6 +596,7 @@ static bool work_decode(const json_t *val, struct work *work)
 		adata_sz = 180/4;
 		break;
 	case ALGO_NEOSCRYPT:
+	case ALGO_XAYA:
 	case ALGO_ZR5:
 		data_size = 80;
 		adata_sz = data_size / 4;
@@ -1852,6 +1854,14 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		work->data[37] = (rand()*4) << 8; // random work data
 		sctx->job.height = work->data[32];
 		//applog_hex(work->data, 180);
+	} else if (opt_algo == ALGO_XAYA) {
+		for (i = 0; i < 8; i++)
+			work->data[9 + i] = swab32(be32dec((uint32_t *)merkle_root + i));
+
+		work->data[17] = le32dec(sctx->job.ntime);
+		work->data[18] = le32dec(sctx->job.nbits);
+		work->data[20] = 0x80000000;
+		work->data[31] = (opt_algo == ALGO_MJOLLNIR) ? 0x000002A0 : 0x00000280;
 	} else {
 		for (i = 0; i < 8; i++)
 			work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
@@ -1901,6 +1911,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	switch (opt_algo) {
 		case ALGO_JACKPOT:
 		case ALGO_NEOSCRYPT:
+		case ALGO_XAYA:
 		case ALGO_SCRYPT:
 		case ALGO_SCRYPT_JANE:
 			work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
@@ -2342,6 +2353,7 @@ static void *miner_thread(void *userdata)
 				break;
 			case ALGO_LYRA2:
 			case ALGO_NEOSCRYPT:
+			case ALGO_XAYA:
 			case ALGO_SIB:
 			case ALGO_SCRYPT:
 				minmax = 0x80000;
@@ -2456,6 +2468,7 @@ static void *miner_thread(void *userdata)
 			rc = scanhash_lyra2v2(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_NEOSCRYPT:
+		case ALGO_XAYA:
 			rc = scanhash_neoscrypt(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_NIST5:
